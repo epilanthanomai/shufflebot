@@ -8,7 +8,7 @@ deploy:
     on:
       branch: latest
     script:
-      - docker tag shufflebot epilanthanomai/shufflebot:latest && docker push epilanthanomai.shufflebot:latest
+      - docker tag shufflebot epilanthanomai/shufflebot:latest && docker push epilanthanomai/shufflebot:latest
   - provider: script
     on:
       tags: true
