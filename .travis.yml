@@ -1,0 +1,16 @@
+services: docker
+script:
+  - docker build -t shufflebot .
+before_deploy:
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+deploy:
+  - provider: script
+    on:
+      branch: latest
+    script:
+      - docker tag shufflebot epilanthanomai/shufflebot:latest && docker push epilanthanomai.shufflebot:latest
+  - provider: script
+    on:
+      tags: true
+    script:
+      - docker tag shufflebot epilanthanomai/shuffleot:$TRAVIS_TAG && docker push epilanthanomai/shufflebot:$TRAVIS_TAG
