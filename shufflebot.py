@@ -58,26 +58,38 @@ class CardStack:
 
 
 class ShuffleBot(BotBase):
+    NO_CARDS_MESSAGE = "This channel has no cards right now. +reset to start."
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.cards = CardStack()
+        self.channels = {}
+
+    def get_cards(self, channel, create=True):
+        result = self.channels.get(channel.id)
+        if result is None:
+            result = CardStack()
+            self.channels[channel.id] = result
+        return result
 
     async def command_scandeck(self, message, rest):
-        cards_str = ", ".join(self.cards.cards)
+        cards = self.get_cards(message.channel)
+        cards_str = ", ".join(cards.cards)
         await message.channel.send(
-            f"{len(self.cards.cards)} cards in the deck: {spoiler(cards_str)}"
+            f"{len(cards.cards)} cards in the deck: {spoiler(cards_str)}"
         )
 
     async def command_reset(self, message, rest):
-        self.cards.reset()
+        self.channels[message.channel.id] = CardStack()
         await message.add_reaction("👍")
 
     async def command_shuffle(self, message, rest):
-        self.cards.shuffle()
+        cards = self.get_cards(message.channel)
+        cards.shuffle()
         await message.add_reaction("🎲")
 
     async def command_draw(self, message, rest):
-        card = self.cards.draw()
+        cards = self.get_cards(message.channel)
+        card = cards.draw()
         if card:
             await message.channel.send(f"{message.author.mention} drew {spoiler(card)}")
         else:
