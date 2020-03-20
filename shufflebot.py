@@ -75,7 +75,8 @@ class ShuffleBot(BotBase):
         cards = self.get_cards(message.channel)
         cards_str = ", ".join(cards.cards)
         await message.channel.send(
-            f"{len(cards.cards)} cards in the deck: {spoiler(cards_str)}"
+            f"{len(cards.cards)} cards in the deck: "
+            + maybe_spoiler(cards_str, message.channel)
         )
 
     async def command_reset(self, message, rest):
@@ -90,15 +91,30 @@ class ShuffleBot(BotBase):
     async def command_draw(self, message, rest):
         cards = self.get_cards(message.channel)
         card = cards.draw()
-        if card:
-            await message.channel.send(f"{message.author.mention} drew {spoiler(card)}")
-        else:
+        if not card:
             await message.channel.send("There are no cards left in the deck.")
+        elif single_peer(message.channel):
+            await message.channel.send(card)
+        else:
+            await message.channel.send(f"{message.author.mention} drew {spoiler(card)}")
 
 
-def spoiler(message):
-    escaped = message.replace("|", r"\|")
+def single_peer(channel):
+    # If a channel has only a single recipient, then it is a private DM channel, and we might
+    # wnat to escape our message differently.
+    return hasattr(channel, "recipient")
+
+
+def spoiler(text):
+    escaped = text.replace("|", r"\|")
     return "||" + escaped + "||"
+
+
+def maybe_spoiler(text, channel):
+    if single_peer(channel):
+        return text
+    else:
+        return spoiler(text)
 
 
 if __name__ == "__main__":
