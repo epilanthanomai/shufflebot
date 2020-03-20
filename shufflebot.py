@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 
 from discord import Client
 
@@ -42,11 +43,32 @@ class ShuffleBot(BotBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.initialize_cards()
+
+    def initialize_cards(self):
         self.cards = [rank + suit for suit in self.SUITS for rank in self.RANKS]
 
     async def command_scandeck(self, message, rest):
         cards_str = ", ".join(self.cards)
-        await message.channel.send(f"Cards in the deck: {spoiler(cards_str)}")
+        await message.channel.send(
+            f"{len(self.cards)} cards in the deck: {spoiler(cards_str)}"
+        )
+
+    async def command_reset(self, message, rest):
+        self.initialize_cards()
+        await message.add_reaction("👍")
+
+    async def command_shuffle(self, message, rest):
+        random.shuffle(self.cards)
+        await message.add_reaction("🎲")
+
+    async def command_draw(self, message, rest):
+        if not self.cards:
+            await message.channel.send("There are no cards left in the deck.")
+            return
+
+        card, self.cards = self.cards[0], self.cards[1:]
+        await message.channel.send(f"{message.author.mention} drew {spoiler(card)}")
 
 
 def spoiler(message):
