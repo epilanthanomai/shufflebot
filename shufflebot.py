@@ -37,8 +37,21 @@ class BotBase(Client):
 
 
 class ShuffleBot(BotBase):
-    async def command_hello(self, message, rest):
-        await message.channel.send("Hello!")
+    RANKS = ("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K")
+    SUITS = "♣♦♥♠"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cards = [rank + suit for suit in self.SUITS for rank in self.RANKS]
+
+    async def command_scandeck(self, message, rest):
+        cards_str = ", ".join(self.cards)
+        await message.channel.send(f"Cards in the deck: {spoiler(cards_str)}")
+
+
+def spoiler(message):
+    escaped = message.replace("|", r"\|")
+    return "||" + escaped + "||"
 
 
 if __name__ == "__main__":
