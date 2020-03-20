@@ -37,38 +37,51 @@ class BotBase(Client):
         pass
 
 
-class ShuffleBot(BotBase):
+class CardStack:
     RANKS = ("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K")
     SUITS = "♣♦♥♠"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.initialize_cards()
+    def __init__(self):
+        self.reset()
 
-    def initialize_cards(self):
+    def reset(self):
         self.cards = [rank + suit for suit in self.SUITS for rank in self.RANKS]
 
+    def shuffle(self):
+        random.shuffle(self.cards)
+
+    def draw(self):
+        if not self.cards:
+            return
+        card, self.cards = self.cards[0], self.cards[1:]
+        return card
+
+
+class ShuffleBot(BotBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cards = CardStack()
+
     async def command_scandeck(self, message, rest):
-        cards_str = ", ".join(self.cards)
+        cards_str = ", ".join(self.cards.cards)
         await message.channel.send(
-            f"{len(self.cards)} cards in the deck: {spoiler(cards_str)}"
+            f"{len(self.cards.cards)} cards in the deck: {spoiler(cards_str)}"
         )
 
     async def command_reset(self, message, rest):
-        self.initialize_cards()
+        self.cards.reset()
         await message.add_reaction("👍")
 
     async def command_shuffle(self, message, rest):
-        random.shuffle(self.cards)
+        self.cards.shuffle()
         await message.add_reaction("🎲")
 
     async def command_draw(self, message, rest):
-        if not self.cards:
+        card = self.cards.draw()
+        if card:
+            await message.channel.send(f"{message.author.mention} drew {spoiler(card)}")
+        else:
             await message.channel.send("There are no cards left in the deck.")
-            return
-
-        card, self.cards = self.cards[0], self.cards[1:]
-        await message.channel.send(f"{message.author.mention} drew {spoiler(card)}")
 
 
 def spoiler(message):
