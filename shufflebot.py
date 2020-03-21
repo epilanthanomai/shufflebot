@@ -1,3 +1,4 @@
+import inspect
 import logging
 import os
 import random
@@ -33,6 +34,31 @@ class BotBase(Client):
         except:
             logger.exception("Error while handling command")
 
+    async def command_help(self, message, rest):
+        await message.channel.send(self.get_formatted_help())
+
+    def get_formatted_help(self):
+        candidates = [
+            (name, getattr(self, name))
+            for name in dir(self)
+            if name.startswith("command_")
+        ]
+        commands = [
+            (self.command_from_attribute_name(name), command.__doc__)
+            for (name, command) in candidates
+            if inspect.iscoroutinefunction(command) and command.__doc__
+        ]
+        formatted = [self.format_command_help(name, doc) for (name, doc) in commands]
+        return quote_all("\n".join(formatted))
+
+    def command_from_attribute_name(self, attr_name):
+        assert attr_name.startswith("command_")
+        command_name = attr_name[len("command_") :]
+        return self.command_prefix + command_name
+
+    def format_command_help(self, name, doc):
+        return fixed_width(name) + " " + doc
+
     async def unrecognized_command(self, message, rest):
         pass
 
@@ -58,8 +84,6 @@ class CardStack:
 
 
 class ShuffleBot(BotBase):
-    NO_CARDS_MESSAGE = "This channel has no cards right now. +reset to start."
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.channels = {}
@@ -72,6 +96,7 @@ class ShuffleBot(BotBase):
         return result
 
     async def command_scandeck(self, message, rest):
+        """Output the entire contents of the deck. It'll be spoilered in a channel."""
         cards = self.get_cards(message.channel)
         cards_str = ", ".join(cards.cards)
         await message.channel.send(
@@ -80,15 +105,18 @@ class ShuffleBot(BotBase):
         )
 
     async def command_reset(self, message, rest):
+        """Reset the deck to its original, unshuffled state."""
         self.channels[message.channel.id] = CardStack()
         await message.add_reaction("👍")
 
     async def command_shuffle(self, message, rest):
+        """Shuffle the cards in the deck."""
         cards = self.get_cards(message.channel)
         cards.shuffle()
         await message.add_reaction("🎲")
 
     async def command_draw(self, message, rest):
+        """Draw one card from the deck, and send that card, spoilered, to the channel."""
         cards = self.get_cards(message.channel)
         card = cards.draw()
         if not card:
@@ -115,6 +143,20 @@ def maybe_spoiler(text, channel):
         return text
     else:
         return spoiler(text)
+
+
+def quote_all(text):
+    return ">>> " + text
+
+
+def fixed_width(text):
+    tick = "`"
+    if "`" in text:
+        tick = "``"
+    # I haven't found a way to safely wrap a double backtick in discord yet, so I guess just
+    # look ugly when that happens?
+
+    return f"{tick}{text}{tick}"
 
 
 if __name__ == "__main__":
