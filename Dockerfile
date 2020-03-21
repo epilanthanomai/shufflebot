@@ -12,3 +12,5 @@ WORKDIR $ROOT
 COPY --from=build /build /usr/local
 COPY shufflebot.py $ROOT
 CMD python3 shufflebot.py
+
+ARG SHUFFLEBOT_VERSION

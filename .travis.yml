@@ -1,6 +1,9 @@
 services: docker
-script:
-  - docker build -t shufflebot .
+script: >-
+  if [ -n "$TRAVIS_TAG" ]; then
+    VERSION_ARG="--build-arg SHUFFLEBOT_VERSION=$TRAVIS_TAG+build.$TRAVIS_BUILD_NUMBER.sha-$TRAVIS_COMMIT";
+  fi;
+  docker build -t shufflebot $VERSION_ARG .
 before_deploy:
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 deploy:

@@ -76,5 +76,7 @@ class ShuffleBot(discobot.BotBase):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger.setLevel(logging.DEBUG)
+    version = discobot.__version__ or "dev"
+    logger.info("shufflebot version=" + version)
     bot = ShuffleBot()
     bot.run(os.environ["DISCORD_TOKEN"])

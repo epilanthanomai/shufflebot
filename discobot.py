@@ -1,9 +1,11 @@
 import inspect
 import logging
+import os
 
 from discord import Client
 
 logger = logging.getLogger("shufflebot." + __name__)
+__version__ = os.environ.get("SHUFFLEBOT_VERSION")
 
 
 class BotBase(Client):
@@ -37,6 +39,9 @@ class BotBase(Client):
         await message.channel.send(self.get_formatted_help())
 
     def get_formatted_help(self):
+        version_str = f"v{__version__}" if __version__ else "dev"
+        version_statement = bold("Shufflebot") + " " + version_str
+
         candidates = [
             (name, getattr(self, name))
             for name in dir(self)
@@ -48,7 +53,8 @@ class BotBase(Client):
             if inspect.iscoroutinefunction(command) and command.__doc__
         ]
         formatted = [self.format_command_help(name, doc) for (name, doc) in commands]
-        return quote_all("\n".join(formatted))
+
+        return version_statement + "\n" + quote_all("\n".join(formatted))
 
     def command_from_attribute_name(self, attr_name):
         assert attr_name.startswith("command_")
@@ -66,6 +72,11 @@ def single_peer(channel):
     # If a channel has only a single recipient, then it is a private DM channel, and we might
     # wnat to escape our message differently.
     return hasattr(channel, "recipient")
+
+
+def bold(text):
+    escaped = text.replace("**", r"\*\*")
+    return "**" + escaped + ""
 
 
 def spoiler(text):
