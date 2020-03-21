@@ -31,6 +31,7 @@ class BotBase(Client):
             await command(message, rest)
         except:
             logger.exception("Error while handling command")
+            await message.add_reaction("💥")
 
     async def command_help(self, message, rest):
         await message.channel.send(self.get_formatted_help())
