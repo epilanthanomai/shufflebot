@@ -3,6 +3,8 @@ import logging
 import os
 import random
 
+import yaml
+
 import discobot
 
 logger = logging.getLogger("shufflebot")
@@ -30,28 +32,21 @@ class CardStack:
 
 
 class ShuffleBot(discobot.BotBase):
-    POKER_RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
-    POKER_SUITS = "♣♦♥♠"
     BOT_NAME = "Shufflebot"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.channels = {}
-        self.library = {
-            "poker": CardSet(
-                name="poker",
-                description="a standard poker deck",
-                cards=self.poker_cards(),
-            )
-        }
-        self.default_card_set = "poker"
+        self.library = self.load_decks("decks/poker.yaml")
+        self.default_card_set = list(sorted(self.library.keys()))[0]
 
-    def poker_cards(self):
-        return [
-            Card(name=rank + suit, description=None)
-            for suit in self.POKER_SUITS
-            for rank in self.POKER_RANKS
-        ]
+    def load_decks(self, path):
+        with open(path) as decks_f:
+            card_set_list = [
+                card_set_from_yaml_object(yaml_object)
+                for yaml_object in yaml.load_all(decks_f, Loader=yaml.Loader)
+            ]
+        return {cs.name: cs for cs in card_set_list}
 
     def get_formatted_help(self):
         super_result = super().get_formatted_help()
@@ -125,6 +120,20 @@ def format_card_message(card):
         return f'"{card.name}"\n' + discobot.quote_all(card.description)
     else:
         return card.name
+
+
+def card_set_from_yaml_object(yaml_deck):
+    name = yaml_deck["name"]
+    description = yaml_deck.get("description")
+    cards = [card_from_yaml_object(yaml_card) for yaml_card in yaml_deck["cards"]]
+    assert cards
+    return CardSet(name=name, description=description, cards=cards)
+
+
+def card_from_yaml_object(yaml_card):
+    name = yaml_card["name"]
+    description = yaml_card.get("description")
+    return Card(name=name, description=description)
 
 
 if __name__ == "__main__":
