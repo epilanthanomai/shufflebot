@@ -8,6 +8,7 @@ import discobot
 logger = logging.getLogger("shufflebot")
 
 Card = collections.namedtuple("Card", ["name", "description"])
+CardSet = collections.namedtuple("CardSet", ["name", "description", "cards"])
 
 
 class CardStack:
@@ -28,26 +29,58 @@ class CardStack:
         return card
 
 
-POKER_RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
-POKER_SUITS = "♣♦♥♠"
-POKER_CARDS = [
-    Card(name=rank + suit, description=None)
-    for suit in POKER_SUITS
-    for rank in POKER_RANKS
-]
-
-
 class ShuffleBot(discobot.BotBase):
+    POKER_RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+    POKER_SUITS = "♣♦♥♠"
+    BOT_NAME = "Shufflebot"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.channels = {}
+        self.library = {
+            "poker": CardSet(
+                name="poker",
+                description="a standard poker deck",
+                cards=self.poker_cards(),
+            )
+        }
+        self.default_card_set = "poker"
+
+    def poker_cards(self):
+        return [
+            Card(name=rank + suit, description=None)
+            for suit in self.POKER_SUITS
+            for rank in self.POKER_RANKS
+        ]
+
+    def get_formatted_help(self):
+        super_result = super().get_formatted_help()
+        local_help = (
+            f"{discobot.bold(self.BOT_NAME)} knows about the following decks: "
+            + " ".join(discobot.fixed_width(name) for name in self.library.keys())
+        )
+        return super_result + "\n" + local_help
 
     def get_cards(self, channel, create=True):
         result = self.channels.get(channel.id)
         if result is None:
-            result = CardStack(POKER_CARDS)
+            result = CardStack(self.library[self.default_card_set])
             self.channels[channel.id] = result
         return result
+
+    async def command_newdeck(self, message, rest):
+        """Use a new deck of the specified type in this channel."""
+        if not rest:
+            return await discobot.fail_command(
+                message, "You must specify a deck type to use."
+            )
+        card_set = self.library.get(rest)
+        if not card_set:
+            return await discobot.fail_command(
+                message, f"No deck named {discobot.fixed_width(rest)}"
+            )
+        self.channels[message.channel.id] = CardStack(card_set.cards)
+        await message.add_reaction("👍")
 
     async def command_scandeck(self, message, rest):
         """Output the entire contents of the deck. It'll be spoilered in a channel."""
@@ -75,7 +108,9 @@ class ShuffleBot(discobot.BotBase):
         cards = self.get_cards(message.channel)
         card = cards.draw()
         if not card:
-            await message.channel.send("There are no cards left in the deck.")
+            return await discobot.fail_command(
+                message, "There are no cards left in the deck."
+            )
         elif discobot.single_peer(message.channel):
             await message.channel.send(format_card_message(card))
         else:

@@ -9,6 +9,7 @@ __version__ = os.environ.get("SHUFFLEBOT_VERSION")
 
 
 class BotBase(Client):
+    BOT_NAME = "Discobot"
     DEFAULT_COMMAND_PREFIX = "+"
 
     def __init__(self, *args, **kwargs):
@@ -40,7 +41,7 @@ class BotBase(Client):
 
     def get_formatted_help(self):
         version_str = f"v{__version__}" if __version__ else "dev"
-        version_statement = bold("Shufflebot") + " " + version_str
+        version_statement = bold(self.BOT_NAME) + " " + version_str
 
         candidates = [
             (name, getattr(self, name))
@@ -54,7 +55,7 @@ class BotBase(Client):
         ]
         formatted = [self.format_command_help(name, doc) for (name, doc) in commands]
 
-        return version_statement + "\n" + quote_all("\n".join(formatted))
+        return version_statement + "\n" + "\n".join(formatted)
 
     def command_from_attribute_name(self, attr_name):
         assert attr_name.startswith("command_")
@@ -62,7 +63,7 @@ class BotBase(Client):
         return self.command_prefix + command_name
 
     def format_command_help(self, name, doc):
-        return fixed_width(name) + " " + doc
+        return quote(fixed_width(name) + " " + doc)
 
     async def unrecognized_command(self, message, rest):
         pass
@@ -74,9 +75,16 @@ def single_peer(channel):
     return hasattr(channel, "recipient")
 
 
+async def fail_command(message, result):
+    if not single_peer(message.channel):
+        result = message.author.mention + ": " + result
+    await message.channel.send(result)
+    await message.add_reaction("🙁")
+
+
 def bold(text):
     escaped = text.replace("**", r"\*\*")
-    return "**" + escaped + ""
+    return "**" + escaped + "**"
 
 
 def spoiler(text):
@@ -89,6 +97,10 @@ def maybe_spoiler(text, channel):
         return text
     else:
         return spoiler(text)
+
+
+def quote(line):
+    return "> " + line
 
 
 def quote_all(text):
