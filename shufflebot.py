@@ -11,7 +11,7 @@ import discobot
 
 logger = logging.getLogger("shufflebot")
 
-DEFAULT_DECK_LOCATION = "decks/poker.yaml"
+DEFAULT_DECKLIST_LOCATION = "decks/deck_list.yaml"
 
 Card = collections.namedtuple("Card", ["name", "description"])
 CardSet = collections.namedtuple("CardSet", ["name", "description", "cards"])
@@ -38,19 +38,11 @@ class CardStack:
 class ShuffleBot(discobot.BotBase):
     BOT_NAME = "Shufflebot"
 
-    def __init__(self, deck_url, *args, **kwargs):
+    def __init__(self, decklist_url, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.channels = {}
-        self.library = self.load_decks(deck_url)
+        self.library = load_card_set_list(decklist_url)
         self.default_card_set = list(sorted(self.library.keys()))[0]
-
-    def load_decks(self, url):
-        with urlopen(url) as decks_f:
-            card_set_list = [
-                card_set_from_yaml_object(yaml_object)
-                for yaml_object in yaml.load_all(decks_f, Loader=yaml.Loader)
-            ]
-        return {cs.name: cs for cs in card_set_list}
 
     def get_formatted_help(self):
         super_result = super().get_formatted_help()
@@ -126,6 +118,27 @@ def format_card_message(card):
         return card.name
 
 
+def load_card_set_list(decklist_url):
+    logger.info("Loading card set list: " + decklist_url)
+    with urlopen(decklist_url) as decklist_f:
+        deck_list = yaml.load(decklist_f, Loader=yaml.Loader)
+    card_set_list = sum(
+        (load_card_sets(urljoin(decklist_url, deck_url)) for deck_url in deck_list), []
+    )
+    return {cs.name: cs for cs in card_set_list}
+
+
+def load_card_sets(url):
+    logger.info("Loading card sets: " + url)
+    with urlopen(url) as card_set_f:
+        yaml_decks = yaml.load_all(card_set_f, Loader=yaml.Loader)
+        card_sets = [card_set_from_yaml_object(yaml_deck) for yaml_deck in yaml_decks]
+        logger.info(
+            "Got card sets: " + ", ".join(card_set.name for card_set in card_sets)
+        )
+        return card_sets
+
+
 def card_set_from_yaml_object(yaml_deck):
     name = yaml_deck["name"]
     description = yaml_deck.get("description")
@@ -140,14 +153,14 @@ def card_from_yaml_object(yaml_card):
     return Card(name=name, description=description)
 
 
-def deck_url():
-    deck_path = os.environ.get("SHUFFLEBOT_DECK", DEFAULT_DECK_LOCATION)
-    deck_parts = urlsplit(deck_path)
-    if not deck_parts.scheme:
+def decklist_url():
+    decklist_path = os.environ.get("SHUFFLEBOT_DECKLIST", DEFAULT_DECKLIST_LOCATION)
+    decklist_parts = urlsplit(decklist_path)
+    if not decklist_parts.scheme:
         cwd = os.getcwd() + os.path.sep
         cwd_url = urlsplit(cwd)._replace(scheme="file").geturl()
-        deck_path = urljoin(cwd_url, deck_path)
-    return deck_path
+        decklist_path = urljoin(cwd_url, decklist_path)
+    return decklist_path
 
 
 if __name__ == "__main__":
@@ -155,5 +168,5 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     version = discobot.__version__ or "dev"
     logger.info("shufflebot version=" + version)
-    bot = ShuffleBot(deck_url=deck_url())
+    bot = ShuffleBot(decklist_url=decklist_url())
     bot.run(os.environ["DISCORD_TOKEN"])
