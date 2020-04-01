@@ -2,12 +2,16 @@ import collections
 import logging
 import os
 import random
+from urllib.parse import urlsplit, urljoin
+from urllib.request import urlopen
 
 import yaml
 
 import discobot
 
 logger = logging.getLogger("shufflebot")
+
+DEFAULT_DECK_LOCATION = "decks/poker.yaml"
 
 Card = collections.namedtuple("Card", ["name", "description"])
 CardSet = collections.namedtuple("CardSet", ["name", "description", "cards"])
@@ -34,14 +38,14 @@ class CardStack:
 class ShuffleBot(discobot.BotBase):
     BOT_NAME = "Shufflebot"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, deck_url, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.channels = {}
-        self.library = self.load_decks("decks/poker.yaml")
+        self.library = self.load_decks(deck_url)
         self.default_card_set = list(sorted(self.library.keys()))[0]
 
-    def load_decks(self, path):
-        with open(path) as decks_f:
+    def load_decks(self, url):
+        with urlopen(url) as decks_f:
             card_set_list = [
                 card_set_from_yaml_object(yaml_object)
                 for yaml_object in yaml.load_all(decks_f, Loader=yaml.Loader)
@@ -136,10 +140,20 @@ def card_from_yaml_object(yaml_card):
     return Card(name=name, description=description)
 
 
+def deck_url():
+    deck_path = os.environ.get("SHUFFLEBOT_DECK", DEFAULT_DECK_LOCATION)
+    deck_parts = urlsplit(deck_path)
+    if not deck_parts.scheme:
+        cwd = os.getcwd() + os.path.sep
+        cwd_url = urlsplit(cwd)._replace(scheme="file").geturl()
+        deck_path = urljoin(cwd_url, deck_path)
+    return deck_path
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger.setLevel(logging.DEBUG)
     version = discobot.__version__ or "dev"
     logger.info("shufflebot version=" + version)
-    bot = ShuffleBot()
+    bot = ShuffleBot(deck_url=deck_url())
     bot.run(os.environ["DISCORD_TOKEN"])
