@@ -19,11 +19,12 @@ CardSet = collections.namedtuple("CardSet", ["name", "description", "cards"])
 
 class CardStack:
     def __init__(self, cards):
-        self.card_set = cards
+        self.original_cards = cards
+        self.cards = cards.copy()
         self.reset()
 
     def reset(self):
-        self.cards = self.card_set.copy()
+        self.cards = self.original_cards.copy()
 
     def shuffle(self):
         random.shuffle(self.cards)
@@ -41,8 +42,9 @@ class ShuffleBot(discobot.BotBase):
     def __init__(self, decklist_url, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.channels = {}
-        self.library = load_card_set_list(decklist_url)
-        self.default_card_set = list(sorted(self.library.keys()))[0]
+        card_sets = load_card_set_list(decklist_url)
+        self.library = {cs.name: cs for cs in card_sets}
+        self.default_card_set = card_sets[0].name
 
     def get_formatted_help(self):
         super_result = super().get_formatted_help()
@@ -55,7 +57,7 @@ class ShuffleBot(discobot.BotBase):
     def get_cards(self, channel, create=True):
         result = self.channels.get(channel.id)
         if result is None:
-            result = CardStack(self.library[self.default_card_set])
+            result = CardStack(self.library[self.default_card_set].cards)
             self.channels[channel.id] = result
         return result
 
@@ -122,10 +124,9 @@ def load_card_set_list(decklist_url):
     logger.info("Loading card set list: " + decklist_url)
     with urlopen(decklist_url) as decklist_f:
         deck_list = yaml.load(decklist_f, Loader=yaml.Loader)
-    card_set_list = sum(
+    return sum(
         (load_card_sets(urljoin(decklist_url, deck_url)) for deck_url in deck_list), []
     )
-    return {cs.name: cs for cs in card_set_list}
 
 
 def load_card_sets(url):
